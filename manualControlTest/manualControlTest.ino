@@ -20,9 +20,9 @@ int MTR_E_STP = 5;
 int MTR_E_DIR = 4;
 
 //control pins, each button wil lbe a digital high-low 
-int CTRL_A = 1;
+int CTRL_A = 2;
 int prevCtrlAState = 0;
-int CTRL_B = 2;
+int CTRL_B = 7;
 int prevCtrlBState = 0;
 
 
