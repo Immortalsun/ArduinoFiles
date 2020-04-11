@@ -20,9 +20,9 @@ int MTR_E_STP = 5;
 int MTR_E_DIR = 4;
 
 //control pins, each button wil lbe a digital high-low 
-int CTRL_A = 2;
+const int CTRL_A = 2;
 int prevCtrlAState = 0;
-int CTRL_B = 7;
+const int CTRL_B = 3;
 int prevCtrlBState = 0;
 
 
@@ -39,8 +39,6 @@ int VIEWPORT_OFFSET = 0;
 unsigned long CURR_MILLIS = 0;
 unsigned long PREV_MILLIS = 0;
 unsigned long PREV_LCD_MILLIS = 0;
-unsigned long PREV_DEBOUNCE_TIME = 0;  // the last time the output pin was toggled
-unsigned long DEBOUNCE_DELAY = 50;    // the debounce time; increase if the output flickers
 
 int refreshInterval = 1500;//refreshes lcd every 1.5s
 int scrollInterval = 10000;//10 second interval
@@ -72,6 +70,7 @@ LiquidCrystal_PCF8574 lcd(0x27);
 //MAIN REQUIRED METHODS
 void setup() 
 {  
+    Serial.begin(9600);
     pinMode(CTRL_A, INPUT);
     pinMode(CTRL_B, INPUT);
     lcd.begin(20, 4); // initialize the lcd
@@ -184,28 +183,21 @@ void testControlInputs(){
     int ctrlAReading = digitalRead(CTRL_A);
     int ctrlBReading = digitalRead(CTRL_B);
 
-    if(ctrlAReading != prevCtrlAState || ctrlBReading != prevCtrlBState){
-        //reset debounce timer if state changed
-        PREV_DEBOUNCE_TIME = CURR_MILLIS;
-    }
-
-    if((CURR_MILLIS - PREV_DEBOUNCE_TIME) > DEBOUNCE_DELAY){
-        //test button A (base motor)
-        if(ctrlAReading != prevCtrlAState){
-            prevCtrlAState = ctrlAReading;
-            if(ctrlAReading == HIGH){
-                //move motor 1/16 adjust
-                long targetAPos = stprA.currentPosition() + stepsPerPress;
-                accelerateMotorToTargetPosition(stprA, targetAPos);
-            }
+    //test button A (base motor)
+    if(ctrlAReading != prevCtrlAState){
+        prevCtrlAState = ctrlAReading;
+        if(ctrlAReading == HIGH){
+            //move motor 1/16 adjust
+            long targetAPos = stprA.currentPosition() + stepsPerPress;
+            accelerateMotorToTargetPosition(stprA, targetAPos);
         }
-        //test button B (shoulder motor)
-        if(ctrlBReading != prevCtrlBState){
-            prevCtrlBState = ctrlBReading;
-            if(ctrlBReading == HIGH){
-                long targetBPos = stprB.currentPosition() + stepsPerPress;
-                accelerateMotorToTargetPosition(stprB, targetBPos);
-            }
+    }
+    //test button B (shoulder motor)
+    if(ctrlBReading != prevCtrlBState){
+        prevCtrlBState = ctrlBReading;
+        if(ctrlBReading == HIGH){
+            long targetBPos = stprB.currentPosition() + stepsPerPress;
+            accelerateMotorToTargetPosition(stprB, targetBPos);
         }
     }
 }
