@@ -21,7 +21,9 @@ int MTR_E_DIR = 4;
 
 //control pins, each button wil lbe a digital high-low 
 int CTRL_A = 1;
+int prevCtrlAState = 0;
 int CTRL_B = 2;
+int prevCtrlBState = 0;
 
 
 
@@ -37,6 +39,8 @@ int VIEWPORT_OFFSET = 0;
 unsigned long CURR_MILLIS = 0;
 unsigned long PREV_MILLIS = 0;
 unsigned long PREV_LCD_MILLIS = 0;
+unsigned long PREV_DEBOUNCE_TIME = 0;  // the last time the output pin was toggled
+unsigned long DEBOUNCE_DELAY = 50;    // the debounce time; increase if the output flickers
 
 int refreshInterval = 1500;//refreshes lcd every 1.5s
 int scrollInterval = 10000;//10 second interval
@@ -44,6 +48,7 @@ int acceleration = 750; //steps per second, per second
 int maxSpeed = 1000;    //steps per second
 //global settings
 int stepsPerRev = 1600; //running in 1/8 step mode, 200 full steps per rev * 8
+int stepsPerPress = 200; // 1/16th rev per press - 3200 full rev, 1600 half, 800 qtr, 400 eigth, 200 sixteenth
 
 //Stepper Notes Section
 
@@ -78,7 +83,7 @@ void setup()
 void loop() 
 {
     CURR_MILLIS = millis();
-
+    testControlInputs();
     runMotors();
     refreshLcd();
 }
@@ -140,24 +145,21 @@ void resetCursorPosition(){
 
 void printLcdOutput(){
     resetCursorPosition();
-    if(CURR_MILLIS - PREV_MILLIS >= scrollInterval){
-        PREV_MILLIS+=scrollInterval;
-        switch (VIEWPORT_OFFSET)
-        {
-            case 0:
-                VIEWPORT_OFFSET = 1;
-                break;
-            default:
-                VIEWPORT_OFFSET = 0;
-                break;
-        }
-    }
+    // if(CURR_MILLIS - PREV_MILLIS >= scrollInterval){
+    //     PREV_MILLIS+=scrollInterval;
+    //     switch (VIEWPORT_OFFSET)
+    //     {
+    //         case 0:
+    //             VIEWPORT_OFFSET = 1;
+    //             break;
+    //         default:
+    //             VIEWPORT_OFFSET = 0;
+    //             break;
+    //     }
+    // }
 
     printStepperPositionText(stprA,String("A"));
-    // if(VIEWPORT_OFFSET == 0){
-    //     printStepperPositionText(stprA,String("A"));
-    // }
-    // printStepperPositionText(stprB,String("B"));
+    printStepperPositionText(stprB,String("B"));
     // printStepperPositionText(stprC,String("C"));
     // printStepperPositionText(stprD,String("D"));
     // if(VIEWPORT_OFFSET == 1){
@@ -178,12 +180,33 @@ void printStepperPositionText(AccelStepper &stepper, String label){
 //Test and Control Method Section
 
 void testControlInputs(){
-    if(digitalRead(CTRL_A) == HIGH){
-        
+
+    int ctrlAReading = digitalRead(CTRL_A);
+    int ctrlBReading = digitalRead(CTRL_B);
+
+    if(ctrlAReading != prevCtrlAState || ctrlBReading != prevCtrlBState){
+        //reset debounce timer if state changed
+        PREV_DEBOUNCE_TIME = CURR_MILLIS;
     }
 
-    if(digitalRead(CTRL_B) == HIGH){
-
+    if((CURR_MILLIS - PREV_DEBOUNCE_TIME) > DEBOUNCE_DELAY){
+        //test button A (base motor)
+        if(ctrlAReading != prevCtrlAState){
+            prevCtrlAState = ctrlAReading;
+            if(ctrlAReading == HIGH){
+                //move motor 1/16 adjust
+                long targetAPos = stprA.currentPosition() + stepsPerPress;
+                accelerateMotorToTargetPosition(stprA, targetAPos);
+            }
+        }
+        //test button B (shoulder motor)
+        if(ctrlBReading != prevCtrlBState){
+            prevCtrlBState = ctrlBReading;
+            if(ctrlBReading == HIGH){
+                long targetBPos = stprB.currentPosition() + stepsPerPress;
+                accelerateMotorToTargetPosition(stprB, targetBPos);
+            }
+        }
     }
 }
 
@@ -195,7 +218,7 @@ void resetZeroPosition(AccelStepper &stepper)
     stepper.setCurrentPosition(0);
 }
 
-void accelerateMotorToTargetPositionTest(AccelStepper &stepper, long pos)
+void accelerateMotorToTargetPosition(AccelStepper &stepper, long pos)
 {
     if (!stepper.isRunning() && stepper.currentPosition() != pos)
     {
@@ -203,7 +226,7 @@ void accelerateMotorToTargetPositionTest(AccelStepper &stepper, long pos)
     }
 }
 
-void constantSpeedMotorToTargetPositionTest(AccelStepper &stepper, long pos, int spd)
+void constantSpeedMotorToTargetPosition(AccelStepper &stepper, long pos, int spd)
 {
     if (!stepper.isRunning() && stepper.currentPosition() != pos)
     {
