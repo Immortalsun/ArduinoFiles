@@ -161,7 +161,6 @@ void printLcdOutput(){
     printStepperPositionText(stprA,String("A"));
     printStepperPositionText(stprB,String("B"));
     printStepperPositionText(stprC,String("C"));
-    printStepperPositionText(stprD,String("D"));
     // if(VIEWPORT_OFFSET == 1){
     //     printStepperPositionText(stprE,String("E"));
     // }
@@ -175,6 +174,13 @@ void printStepperPositionText(AccelStepper &stepper, String label){
         lcd.setCursor(CURSOR_COL,CURSOR_ROW);
     }
 }
+
+void printCurrentStatus(){
+    switch (motorSelection)
+    {
+      
+    }
+ }
 //End LCD Methods
 
 //Test and Control Method Section
@@ -212,34 +218,33 @@ void selectMotor(){
     if(motorSelection == 3){
         motorSelection = 0;
     }
-    else 
+    else {
          motorSelection++;
     }
 }
 
 void moveSelectedMotor(long stepsPerPress){
+  long positionA = stprA.currentPosition() + stepsPerPress;
+  long positionB = stprB.currentPosition() + stepsPerPress;
+  long positionC = stprC.currentPosition() + stepsPerPress;
+  
     switch (motorSelection)
     {
         case 0:
-            long positionA = stprA.currentPosition() + stepsPerPress;
-            long positionB = stprB.currentPosition() + stepsPerPress;
             accelerateMotorToTargetPosition(stprA, positionA);
-            accelerateMotorToTargetPosition(stprB, positionB);
-            break;
+            return;
         case 1:
-            long positionC = stprC.currentPosition() + stepsPerPress;
+            accelerateMotorToTargetPosition(stprB, positionB);
             accelerateMotorToTargetPosition(stprC, positionC);
-            break;
+            return;
         case 2:
             long positionD = stprD.currentPosition() + stepsPerPress;
             accelerateMotorToTargetPosition(stprD, positionD);
-            break;
+            return;
         default:
-            long positionA = stprA.currentPosition() + stepsPerPress;
-            long positionB = stprB.currentPosition() + stepsPerPress;
-            accelerateMotorToTargetPosition(stprA, positionA);
             accelerateMotorToTargetPosition(stprB, positionB);
-            break;
+            accelerateMotorToTargetPosition(stprC, positionC);
+            return;
     }
 }
 
