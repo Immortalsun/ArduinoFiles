@@ -4,27 +4,30 @@
 #include <string.h>
 
 //motors
-int MTR_A_STP = 13;
+int MTR_A_STP = 13; //base
 int MTR_A_DIR = 12;
 
-int MTR_B_STP = 11;
+int MTR_B_STP = 11; // shoulder motor 1
 int MTR_B_DIR = 10;
 
-int MTR_C_STP = 9;
+int MTR_C_STP = 9; // shoulder motor 2
 int MTR_C_DIR = 8;
 
-int MTR_D_STP = 7;
+int MTR_D_STP = 7; //wrist rotate
 int MTR_D_DIR = 6;
 
-int MTR_E_STP = 5;
-int MTR_E_DIR = 4;
 
 //control pins, each button wil lbe a digital high-low 
 const int CTRL_A = 2;
 int prevCtrlAState = 0;
+
 const int CTRL_B = 3;
 int prevCtrlBState = 0;
 
+const int CTRL_C = 4;
+int prevCtrlCState = 0;
+
+int motorSelection = 0; //0 is base, 1 is shoulder motor-1, 2 is shoulder motor-2, 3 is wrist rotation
 
 
 int DRIVER_MODE = 1;
@@ -51,7 +54,7 @@ int stepsPerPress = 200; // 1/16th rev per press - 3200 full rev, 1600 half, 800
 //Stepper Notes Section
 
 /*
-For the base motor: gear ratio is 2:1, two motor revolutions per axle revolution
+For the base motor (A): gear ratio is 2:1, two motor revolutions per axle revolution
 
 Current tests show one full 360 degree base rotation in two full revolutions of the motor or 3200 steps 
 Therefore, moving in a 180 deg range requires from steps 0 to 1600
@@ -60,11 +63,10 @@ Therefore, moving in a 180 deg range requires from steps 0 to 1600
 
 //End Notes
 //Create accelStepper objects
-AccelStepper stprA(DRIVER_MODE, MTR_A_STP, MTR_A_DIR);
+AccelStepper stprA(DRIVER_MODE, MTR_A_STP, MTR_A_DIR);//steppers A and B are twinned in the current design, and should be synced if possible
 AccelStepper stprB(DRIVER_MODE, MTR_B_STP, MTR_B_DIR);
 AccelStepper stprC(DRIVER_MODE, MTR_C_STP, MTR_C_DIR);
 AccelStepper stprD(DRIVER_MODE, MTR_D_STP, MTR_D_DIR);
-AccelStepper stprE(DRIVER_MODE, MTR_E_STP, MTR_E_DIR);
 LiquidCrystal_PCF8574 lcd(0x27);
 
 //MAIN REQUIRED METHODS
@@ -107,15 +109,15 @@ void resetAllMotors()
 void resetAcceleration(){
     stprA.setAcceleration(acceleration);
     stprB.setAcceleration(acceleration);
-    // stprC.setAcceleration(acceleration);
-    // stprD.setAcceleration(acceleration);
+    stprC.setAcceleration(acceleration);
+    stprD.setAcceleration(acceleration);
 }
 
 void resetMaxSpeed(){
     stprA.setMaxSpeed(maxSpeed);
     stprB.setMaxSpeed(maxSpeed);
-    // stprC.setMaxSpeed(maxSpeed);
-    // stprD.setMaxSpeed(maxSpeed);
+    stprC.setMaxSpeed(maxSpeed);
+    stprD.setMaxSpeed(maxSpeed);
 }
 
 void runMotors()
@@ -159,8 +161,8 @@ void printLcdOutput(){
 
     printStepperPositionText(stprA,String("A"));
     printStepperPositionText(stprB,String("B"));
-    // printStepperPositionText(stprC,String("C"));
-    // printStepperPositionText(stprD,String("D"));
+    printStepperPositionText(stprC,String("C"));
+    printStepperPositionText(stprD,String("D"));
     // if(VIEWPORT_OFFSET == 1){
     //     printStepperPositionText(stprE,String("E"));
     // }
@@ -180,28 +182,67 @@ void printStepperPositionText(AccelStepper &stepper, String label){
 
 void testControlInputs(){
 
-    int ctrlAReading = digitalRead(CTRL_A);
-    int ctrlBReading = digitalRead(CTRL_B);
+    int ctrlAReading = digitalRead(CTRL_A);//forward (increase step)
+    int ctrlBReading = digitalRead(CTRL_B);//backward (decrease step)
+    int ctrlCReading = digitalRead(CTRL_C);//motor selector
 
-    //test button A (base motor)
+    // increase step of selected motor
     if(ctrlAReading != prevCtrlAState){
         prevCtrlAState = ctrlAReading;
         if(ctrlAReading == HIGH){
-            //move motor 1/16 adjust
-            long targetAPos = stprA.currentPosition() + stepsPerPress;
-            accelerateMotorToTargetPosition(stprA, targetAPos);
+           moveSelectedMotor(stepsPerPress);
         }
     }
-    //test button B (shoulder motor)
+    
     if(ctrlBReading != prevCtrlBState){
         prevCtrlBState = ctrlBReading;
         if(ctrlBReading == HIGH){
-            long targetBPos = stprB.currentPosition() + stepsPerPress;
-            accelerateMotorToTargetPosition(stprB, targetBPos);
+             moveSelectedMotor(-stepsPerPress);
+        }
+    }
+
+    if(ctrlCReading != prevCtrlCState){
+        prevCtrlCState = ctrlCReading;
+        if(ctrlCReading == HIGH){
+            selectMotor();
         }
     }
 }
 
+void selectMotor(){
+    if(motorSelection == 3){
+        motorSelection = 0;
+    }
+    else 
+         motorSelection++;
+    }
+}
+
+void moveSelectedMotor(long stepsPerPress){
+    switch (motorSelection)
+    {
+        case 0:
+            long positionA = stprA.currentPosition() + stepsPerPress;
+            long positionB = stprB.currentPosition() + stepsPerPress;
+            accelerateMotorToTargetPosition(stprA, positionA);
+            accelerateMotorToTargetPosition(stprB, positionB);
+            break;
+        case 1:
+            long positionC = stprC.currentPosition() + stepsPerPress;
+            accelerateMotorToTargetPosition(stprC, positionC);
+            break;
+        case 2:
+            long positionD = stprD.currentPosition() + stepsPerPress;
+            accelerateMotorToTargetPosition(stprD, positionD);
+            break;
+        default:
+            long positionA = stprA.currentPosition() + stepsPerPress;
+            long positionB = stprB.currentPosition() + stepsPerPress;
+            accelerateMotorToTargetPosition(stprA, positionA);
+            accelerateMotorToTargetPosition(stprB, positionB);
+            break;
+    }
+}
 
 
 
