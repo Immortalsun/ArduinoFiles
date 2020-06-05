@@ -45,12 +45,11 @@ unsigned long PREV_LCD_MILLIS = 0;
 
 int refreshInterval = 1500;//refreshes lcd every 1.5s
 int scrollInterval = 10000;//10 second interval
-int acceleration = 750; //steps per second, per second
-int maxSpeed = 1000;    //steps per second
+int acceleration = 250; //steps per second, per second
+int maxSpeed = 750;    //steps per second
 //global settings
 int stepsPerRev = 1600; //running in 1/8 step mode, 200 full steps per rev * 8
 int stepsPerPress = 200; // 1/16th rev per press - 3200 full rev, 1600 half, 800 qtr, 400 eigth, 200 sixteenth
-
 //Stepper Notes Section
 
 /*
