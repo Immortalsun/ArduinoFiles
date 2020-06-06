@@ -102,28 +102,28 @@ void resetAllMotors()
     resetZeroPosition(stprA);
     resetZeroPosition(stprB);
     resetZeroPosition(stprC);
-    resetZeroPosition(stprD);
+    //resetZeroPosition(stprD);
 }
 
 void resetAcceleration(){
     stprA.setAcceleration(acceleration);
     stprB.setAcceleration(acceleration);
     stprC.setAcceleration(acceleration);
-    stprD.setAcceleration(acceleration);
+    //stprD.setAcceleration(acceleration);
 }
 
 void resetMaxSpeed(){
     stprA.setMaxSpeed(maxSpeed);
     stprB.setMaxSpeed(maxSpeed);
     stprC.setMaxSpeed(maxSpeed);
-    stprD.setMaxSpeed(maxSpeed);
+    //stprD.setMaxSpeed(maxSpeed);
 }
 
 void runMotors()
 {
     stprA.run();
     stprB.run();
-    // stprC.run();
+    stprC.run();
     // stprD.run();
 }
 //end Utility and Motor Control
@@ -145,25 +145,10 @@ void resetCursorPosition(){
 
 void printLcdOutput(){
     resetCursorPosition();
-    // if(CURR_MILLIS - PREV_MILLIS >= scrollInterval){
-    //     PREV_MILLIS+=scrollInterval;
-    //     switch (VIEWPORT_OFFSET)
-    //     {
-    //         case 0:
-    //             VIEWPORT_OFFSET = 1;
-    //             break;
-    //         default:
-    //             VIEWPORT_OFFSET = 0;
-    //             break;
-    //     }
-    // }
-
     printStepperPositionText(stprA,String("A"));
     printStepperPositionText(stprB,String("B"));
     printStepperPositionText(stprC,String("C"));
-    // if(VIEWPORT_OFFSET == 1){
-    //     printStepperPositionText(stprE,String("E"));
-    // }
+    printCurrentStatus();
 }
 
 void printStepperPositionText(AccelStepper &stepper, String label){
@@ -178,7 +163,18 @@ void printStepperPositionText(AccelStepper &stepper, String label){
 void printCurrentStatus(){
     switch (motorSelection)
     {
-      
+        case 0:
+            lcd.print("CURRENT MOTOR: A");
+            break;
+        case 1:
+            lcd.print("CURRENT MOTORS: B + C");
+            break;
+        case 2:
+            lcd.print("CURRENT MOTOR: D");
+            break;
+        default:
+           lcd.print("CURRENT MOTOR: A");
+            break;
     }
  }
 //End LCD Methods
@@ -224,9 +220,10 @@ void selectMotor(){
 }
 
 void moveSelectedMotor(long stepsPerPress){
-  long positionA = stprA.currentPosition() + stepsPerPress;
-  long positionB = stprB.currentPosition() + stepsPerPress;
-  long positionC = stprC.currentPosition() + stepsPerPress;
+    long positionA = stprA.currentPosition() + stepsPerPress;
+    long positionB = stprB.currentPosition() + stepsPerPress;
+    long positionC = stprC.currentPosition() + stepsPerPress;
+    long positionD = stprD.currentPosition() + stepsPerPress;
   
     switch (motorSelection)
     {
@@ -238,7 +235,6 @@ void moveSelectedMotor(long stepsPerPress){
             accelerateMotorToTargetPosition(stprC, positionC);
             return;
         case 2:
-            long positionD = stprD.currentPosition() + stepsPerPress;
             accelerateMotorToTargetPosition(stprD, positionD);
             return;
         default:
