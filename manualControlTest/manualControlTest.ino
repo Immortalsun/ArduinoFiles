@@ -29,6 +29,12 @@ int prevCtrlCState = 0;
 
 int motorSelection = 0; //0 is base, 1 is shoulder motor-1, 2 is shoulder motor-2, 3 is wrist rotation
 
+unsigned long lastDebounceTimeA = 0;  // the last time the button A output pin was toggled
+unsigned long lastDebounceTimeB = 0;  // the last time the button B output pin was toggled
+unsigned long lastDebounceTimeC = 0;  // the last time the button C output pin was toggled
+
+unsigned long debounceDelay = 50;    // the debounce time; increase if the output flickers
+
 
 int DRIVER_MODE = 1;
 
@@ -155,25 +161,26 @@ void printStepperPositionText(AccelStepper &stepper, String label){
     if(!stepper.isRunning()){
         String stepperPos = String(stepper.currentPosition(), DEC);
         lcd.print("MOTOR "+label+" POS: "+stepperPos+"   ");
-        CURSOR_ROW++;
-        lcd.setCursor(CURSOR_COL,CURSOR_ROW);
     }
+    //update cursor to print the next statement no matter what
+    CURSOR_ROW++;
+    lcd.setCursor(CURSOR_COL,CURSOR_ROW);
 }
 
 void printCurrentStatus(){
     switch (motorSelection)
     {
         case 0:
-            lcd.print("CURRENT MOTOR: A");
+            lcd.print("CURRENT MOTOR: A    ");
             break;
         case 1:
-            lcd.print("CURRENT MOTORS: B + C");
+            lcd.print("CURRENT MOTORS: B+C ");
             break;
         case 2:
-            lcd.print("CURRENT MOTOR: D");
+            lcd.print("CURRENT MOTOR: D    ");
             break;
         default:
-           lcd.print("CURRENT MOTOR: A");
+           lcd.print("CURRENT MOTOR: A    ");
             break;
     }
  }
@@ -189,24 +196,33 @@ void testControlInputs(){
 
     // increase step of selected motor
     if(ctrlAReading != prevCtrlAState){
-        prevCtrlAState = ctrlAReading;
-        if(ctrlAReading == HIGH){
-           moveSelectedMotor(stepsPerPress);
+        lastDebounceTimeA = millis();
+        if((millis() - lastDebounceTimeA) > debounceDelay){
+             if(ctrlAReading == HIGH){
+                moveSelectedMotor(stepsPerPress);
+            }
         }
+        prevCtrlAState = ctrlAReading;
     }
     
     if(ctrlBReading != prevCtrlBState){
-        prevCtrlBState = ctrlBReading;
-        if(ctrlBReading == HIGH){
-             moveSelectedMotor(-stepsPerPress);
+        lastDebounceTimeB = millis();
+        if((millis() - lastDebounceTimeB) > debounceDelay){
+              if(ctrlBReading == HIGH){
+                moveSelectedMotor(-stepsPerPress);
+            }
         }
+        prevCtrlBState = ctrlBReading;
     }
 
     if(ctrlCReading != prevCtrlCState){
+        lastDebounceTimeC = millis();
+        if((millis() - lastDebounceTimeC) > debounceDelay){
+            if(ctrlCReading == HIGH){
+                selectMotor();
+            }
+        }        
         prevCtrlCState = ctrlCReading;
-        if(ctrlCReading == HIGH){
-            selectMotor();
-        }
     }
 }
 
