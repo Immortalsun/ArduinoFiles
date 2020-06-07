@@ -17,23 +17,18 @@ int MTR_D_STP = 7; //wrist rotate
 int MTR_D_DIR = 6;
 
 
-//control pins, each button wil lbe a digital high-low 
+//control pins, each button will be a digital high-low, using internal pull-up resistors 
 const int CTRL_A = 2;
-int prevCtrlAState = 0;
+int prevCtrlAState = 1;
 
 const int CTRL_B = 3;
-int prevCtrlBState = 0;
+int prevCtrlBState = 1;
 
 const int CTRL_C = 4;
-int prevCtrlCState = 0;
+int prevCtrlCState = 1;
 
 int motorSelection = 0; //0 is base, 1 is shoulder motor-1, 2 is shoulder motor-2, 3 is wrist rotation
 
-unsigned long lastDebounceTimeA = 0;  // the last time the button A output pin was toggled
-unsigned long lastDebounceTimeB = 0;  // the last time the button B output pin was toggled
-unsigned long lastDebounceTimeC = 0;  // the last time the button C output pin was toggled
-
-unsigned long debounceDelay = 50;    // the debounce time; increase if the output flickers
 
 
 int DRIVER_MODE = 1;
@@ -52,10 +47,11 @@ unsigned long PREV_LCD_MILLIS = 0;
 int refreshInterval = 1500;//refreshes lcd every 1.5s
 int scrollInterval = 10000;//10 second interval
 int acceleration = 250; //steps per second, per second
-int maxSpeed = 750;    //steps per second
+int constantSpeed = 150; //steps per second
+int maxSpeed = 150;    //steps per second
 //global settings
-int stepsPerRev = 1600; //running in 1/8 step mode, 200 full steps per rev * 8
-int stepsPerPress = 200; // 1/16th rev per press - 3200 full rev, 1600 half, 800 qtr, 400 eigth, 200 sixteenth
+int stepsPerRev = 3200; //running in 1/16 step mode, 200 full steps per rev * 16
+int stepsPerPress = 100; // 1/16th rev per press - 3200 full rev, 1600 half, 800 qtr, 400 eigth, 200 sixteenth, 100 thirty-secondth
 //Stepper Notes Section
 
 /*
@@ -64,6 +60,8 @@ For the base motor (A): gear ratio is 2:1, two motor revolutions per axle revolu
 Current tests show one full 360 degree base rotation in two full revolutions of the motor or 3200 steps 
 Therefore, moving in a 180 deg range requires from steps 0 to 1600
 
+For the shoulder motors (B and C), direct mount to motor spindles means 1:1 ratio. 
+Usable arc from O position (determined my limit switch) to approx 1600 (half rev)
 */
 
 //End Notes
@@ -78,8 +76,9 @@ LiquidCrystal_PCF8574 lcd(0x27);
 void setup() 
 {  
     Serial.begin(9600);
-    pinMode(CTRL_A, INPUT);
-    pinMode(CTRL_B, INPUT);
+    pinMode(CTRL_A, INPUT_PULLUP);
+    pinMode(CTRL_B, INPUT_PULLUP);
+    pinMode(CTRL_C, INPUT_PULLUP);
     lcd.begin(20, 4); // initialize the lcd
     lcd.setBacklight(255);
     resetCursorPosition();
@@ -99,7 +98,7 @@ void loop()
 void initialize()
 {
     resetMaxSpeed();
-    resetAcceleration();
+    //resetAcceleration();
     resetAllMotors();
 }
 
@@ -111,12 +110,12 @@ void resetAllMotors()
     //resetZeroPosition(stprD);
 }
 
-void resetAcceleration(){
-    stprA.setAcceleration(acceleration);
-    stprB.setAcceleration(acceleration);
-    stprC.setAcceleration(acceleration);
-    //stprD.setAcceleration(acceleration);
-}
+// void resetAcceleration(){
+//     stprA.setAcceleration(acceleration);
+//     stprB.setAcceleration(acceleration);
+//     stprC.setAcceleration(acceleration);
+//     //stprD.setAcceleration(acceleration);
+// }
 
 void resetMaxSpeed(){
     stprA.setMaxSpeed(maxSpeed);
@@ -127,9 +126,13 @@ void resetMaxSpeed(){
 
 void runMotors()
 {
-    stprA.run();
-    stprB.run();
-    stprC.run();
+    stprA.runSpeedToPosition();
+    stprB.runSpeedToPosition();
+    stprC.runSpeedToPosition();
+    //uncomment to switch to accel/decel
+    // stprA.run();
+    // stprB.run();
+    // stprC.run();
     // stprD.run();
 }
 //end Utility and Motor Control
@@ -158,10 +161,11 @@ void printLcdOutput(){
 }
 
 void printStepperPositionText(AccelStepper &stepper, String label){
-    if(!stepper.isRunning()){
+    if(!IsStepperRunning(stepper)){
         String stepperPos = String(stepper.currentPosition(), DEC);
-        lcd.print("MOTOR "+label+" POS: "+stepperPos+"   ");
+        lcd.print("MOTOR "+label+" POS: "+stepperPos+"      ");
     }
+   
     //update cursor to print the next statement no matter what
     CURSOR_ROW++;
     lcd.setCursor(CURSOR_COL,CURSOR_ROW);
@@ -196,32 +200,23 @@ void testControlInputs(){
 
     // increase step of selected motor
     if(ctrlAReading != prevCtrlAState){
-        lastDebounceTimeA = millis();
-        if((millis() - lastDebounceTimeA) > debounceDelay){
-             if(ctrlAReading == HIGH){
-                moveSelectedMotor(stepsPerPress);
-            }
+       if(ctrlAReading == LOW){
+            moveConstantSelectedMotor(stepsPerPress);
         }
         prevCtrlAState = ctrlAReading;
     }
     
     if(ctrlBReading != prevCtrlBState){
-        lastDebounceTimeB = millis();
-        if((millis() - lastDebounceTimeB) > debounceDelay){
-              if(ctrlBReading == HIGH){
-                moveSelectedMotor(-stepsPerPress);
-            }
+        if(ctrlBReading == LOW){
+            moveConstantSelectedMotor(-stepsPerPress);
         }
         prevCtrlBState = ctrlBReading;
     }
 
     if(ctrlCReading != prevCtrlCState){
-        lastDebounceTimeC = millis();
-        if((millis() - lastDebounceTimeC) > debounceDelay){
-            if(ctrlCReading == HIGH){
-                selectMotor();
-            }
-        }        
+        if(ctrlCReading == LOW){
+            selectMotor();
+        }
         prevCtrlCState = ctrlCReading;
     }
 }
@@ -235,7 +230,7 @@ void selectMotor(){
     }
 }
 
-void moveSelectedMotor(long stepsPerPress){
+void moveConstantSelectedMotor(long stepsPerPress){
     long positionA = stprA.currentPosition() + stepsPerPress;
     long positionB = stprB.currentPosition() + stepsPerPress;
     long positionC = stprC.currentPosition() + stepsPerPress;
@@ -244,42 +239,69 @@ void moveSelectedMotor(long stepsPerPress){
     switch (motorSelection)
     {
         case 0:
-            accelerateMotorToTargetPosition(stprA, positionA);
+            constantSpeedMotorToTargetPosition(stprA, positionA);
             return;
         case 1:
-            accelerateMotorToTargetPosition(stprB, positionB);
-            accelerateMotorToTargetPosition(stprC, positionC);
+            constantSpeedMotorToTargetPosition(stprB, positionB);
+            constantSpeedMotorToTargetPosition(stprC, positionC);
             return;
         case 2:
-            accelerateMotorToTargetPosition(stprD, positionD);
+            constantSpeedMotorToTargetPosition(stprD, positionD);
             return;
         default:
-            accelerateMotorToTargetPosition(stprB, positionB);
-            accelerateMotorToTargetPosition(stprC, positionC);
+            constantSpeedMotorToTargetPosition(stprB, positionB);
+            constantSpeedMotorToTargetPosition(stprC, positionC);
             return;
     }
 }
 
-
+// void moveAccelerateSelectedMotor(long stepsPerPress){
+//     long positionA = stprA.currentPosition() + stepsPerPress;
+//     long positionB = stprB.currentPosition() + stepsPerPress;
+//     long positionC = stprC.currentPosition() + stepsPerPress;
+//     long positionD = stprD.currentPosition() + stepsPerPress;
+  
+//     switch (motorSelection)
+//     {
+//         case 0:
+//             accelerateMotorToTargetPosition(stprA, positionA);
+//             return;
+//         case 1:
+//             accelerateMotorToTargetPosition(stprB, positionB);
+//             accelerateMotorToTargetPosition(stprC, positionC);
+//             return;
+//         case 2:
+//             accelerateMotorToTargetPosition(stprD, positionD);
+//             return;
+//         default:
+//             accelerateMotorToTargetPosition(stprB, positionB);
+//             accelerateMotorToTargetPosition(stprC, positionC);
+//             return;
+//     }
+// }
 
 void resetZeroPosition(AccelStepper &stepper)
 {
     stepper.setCurrentPosition(0);
 }
 
-void accelerateMotorToTargetPosition(AccelStepper &stepper, long pos)
+// void accelerateMotorToTargetPosition(AccelStepper &stepper, long pos)
+// {
+//     if (!stepper.isRunning() && stepper.currentPosition() != pos)
+//     {
+//         stepper.moveTo(pos);
+//     }
+// }
+
+void constantSpeedMotorToTargetPosition(AccelStepper &stepper, long pos)
 {
-    if (!stepper.isRunning() && stepper.currentPosition() != pos)
+    if (!IsStepperRunning(stepper) && stepper.currentPosition() != pos)
     {
         stepper.moveTo(pos);
+        stepper.setSpeed(constantSpeed);
     }
 }
 
-void constantSpeedMotorToTargetPosition(AccelStepper &stepper, long pos, int spd)
-{
-    if (!stepper.isRunning() && stepper.currentPosition() != pos)
-    {
-        stepper.moveTo(pos);
-    }
-    stepper.setSpeed(spd);
+bool IsStepperRunning(AccelStepper &stepper){
+    return stepper.distanceToGo() != 0;
 }
