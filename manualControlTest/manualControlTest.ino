@@ -122,6 +122,7 @@ void resetAllMotors()
     resetZeroPosition(stprA);
     resetZeroPosition(stprB);
     resetZeroPosition(stprC);
+    setServoZeroPosition(elbowServo);
     //resetZeroPosition(stprD);
 }
 
@@ -300,6 +301,10 @@ void moveConstantSelectedMotor(long stepsPerPress){
 void resetZeroPosition(AccelStepper &stepper)
 {
     stepper.setCurrentPosition(0);
+}
+
+void setServoZeroPosition(Servo &servo){
+    servo.write(0);
 }
 
 void constantSpeedMotorToTargetPosition(AccelStepper &stepper, long pos)
