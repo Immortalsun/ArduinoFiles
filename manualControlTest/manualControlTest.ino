@@ -21,8 +21,8 @@ int MTR_D_DIR = 6;
 int ELBOW_SERVO = 13;
 int elbowServoDeg = 0;
 int prevElbowServoDeg = 0;
-const int elbowServoDegPerPress = 30;
-const int MAX_SERVO_DEG = 270;
+const int elbowServoDegPerPress = 5;
+const int MAX_SERVO_DEG = 180;
 
 //control pins, each button will be a digital high-low, using internal pull-up resistors 
 const int CTRL_A =7;
@@ -82,6 +82,7 @@ AccelStepper stprC(DRIVER_MODE, MTR_C_STP, MTR_C_DIR);
 AccelStepper stprD(DRIVER_MODE, MTR_D_STP, MTR_D_DIR);
 //create servo objects
 Servo elbowServo;
+//create lcd screen
 LiquidCrystal_PCF8574 lcd(0x27);
 
 //MAIN REQUIRED METHODS
@@ -113,7 +114,6 @@ void loop()
 void initialize()
 {
     resetMaxSpeed();
-    //resetAcceleration();
     resetAllMotors();
 }
 
@@ -125,13 +125,6 @@ void resetAllMotors()
     setServoZeroPosition(elbowServo);
     //resetZeroPosition(stprD);
 }
-
-// void resetAcceleration(){
-//     stprA.setAcceleration(acceleration);
-//     stprB.setAcceleration(acceleration);
-//     stprC.setAcceleration(acceleration);
-//     //stprD.setAcceleration(acceleration);
-// }
 
 void resetMaxSpeed(){
     stprA.setMaxSpeed(maxSpeed);
@@ -145,11 +138,6 @@ void runMotors()
     stprA.runSpeedToPosition();
     stprB.runSpeedToPosition();
     stprC.runSpeedToPosition();
-    //uncomment to switch to accel/decel
-    // stprA.run();
-    // stprB.run();
-    // stprC.run();
-    // stprD.run();
 }
 
 void runServos(){
@@ -179,7 +167,8 @@ void printLcdOutput(){
     printStepperPositionText(stprA,String("A"));
     printStepperPositionText(stprB,String("B"));
     printStepperPositionText(stprC,String("C"));
-    printCurrentStatus();
+    printServoPositionText();
+    //printCurrentStatus();
 }
 
 void printStepperPositionText(AccelStepper &stepper, String label){
@@ -191,6 +180,11 @@ void printStepperPositionText(AccelStepper &stepper, String label){
     //update cursor to print the next statement no matter what
     CURSOR_ROW++;
     lcd.setCursor(CURSOR_COL,CURSOR_ROW);
+}
+
+void printServoPositionText(){
+    String servoPos = String(elbowServoDeg, DEC);
+    lcd.print("SERVO POS: "+servoPos+"      ");
 }
 
 void printCurrentStatus(){
@@ -264,8 +258,7 @@ void selectMotor(){
 
 void updateServoPosition(){
     prevElbowServoDeg = elbowServoDeg;
-    
-    if(elbowServoDeg < MAX_SERVO_DEG){
+    if(elbowServoDeg+elbowServoDegPerPress <= MAX_SERVO_DEG){
         elbowServoDeg += elbowServoDegPerPress;
     }
     else{
@@ -315,41 +308,6 @@ void constantSpeedMotorToTargetPosition(AccelStepper &stepper, long pos)
         stepper.setSpeed(constantSpeed);
     }
 }
-
-// void accelerateMotorToTargetPosition(AccelStepper &stepper, long pos)
-// {
-//     if (!stepper.isRunning() && stepper.currentPosition() != pos)
-//     {
-//         stepper.moveTo(pos);
-//     }
-// }
-
-
-// void moveAccelerateSelectedMotor(long stepsPerPress){
-//     long positionA = stprA.currentPosition() + stepsPerPress;
-//     long positionB = stprB.currentPosition() + stepsPerPress;
-//     long positionC = stprC.currentPosition() + stepsPerPress;
-//     long positionD = stprD.currentPosition() + stepsPerPress;
-  
-//     switch (motorSelection)
-//     {
-//         case 0:
-//             accelerateMotorToTargetPosition(stprA, positionA);
-//             return;
-//         case 1:
-//             accelerateMotorToTargetPosition(stprB, positionB);
-//             accelerateMotorToTargetPosition(stprC, positionC);
-//             return;
-//         case 2:
-//             accelerateMotorToTargetPosition(stprD, positionD);
-//             return;
-//         default:
-//             accelerateMotorToTargetPosition(stprB, positionB);
-//             accelerateMotorToTargetPosition(stprC, positionC);
-//             return;
-//     }
-// }
-
 
 bool IsStepperRunning(AccelStepper &stepper){
     return stepper.distanceToGo() != 0;
