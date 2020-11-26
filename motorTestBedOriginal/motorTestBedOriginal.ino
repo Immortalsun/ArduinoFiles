@@ -37,8 +37,7 @@ int prevCtrlCState = 1;
 const int CTRL_D = 4;
 int prevCtrlDState = 1;
 
-int motorSelection = 0; //0 is base, 1 is shoulder motor-1, 2 is shoulder motor-2, 3 is wrist rotation
-
+int motorSelection = 0; //0 is base, 1 is shoulder motor-1 and 2, 2 is wrist rotation
 
 
 int DRIVER_MODE = 1;
@@ -53,12 +52,19 @@ int VIEWPORT_OFFSET = 0;
 unsigned long CURR_MILLIS = 0;
 unsigned long PREV_MILLIS = 0;
 unsigned long PREV_LCD_MILLIS = 0;
+unsigned long PREV_TEST_MILLIS = 0;
 
-int refreshInterval = 1500;//refreshes lcd every 1.5s
+//VARIABLE SETTINGS FOR TESTING 
+int testInterval = 3000;//wait two seconds between motor tests
+int testRun = 0; //which test to run,  currently 1 is shoulder -forward-(same direction of wrist facing) and 2 is shoulder -backward-(opposite direction of wrist facing)
+int testLCDMode = 0; //0 - default displays current motor selection, 1 - display current MILLIS as seconds value, max
+int refreshInterval = 1000;//refreshes lcd every 1s
 int scrollInterval = 10000;//10 second interval
 int acceleration = 250; //steps per second, per second
-int constantSpeed = 100; //steps per second
-int maxSpeed = 150;    //steps per second
+int constantSpeed = 80; //steps per second
+int maxSpeed = 100;    //steps per second
+//END VARIABLE SETTINGS
+
 //global settings
 int stepsPerRev = 3200; //running in 1/16 step mode, 200 full steps per rev * 16
 int stepsPerPress = 100; // 1/16th rev per press - 3200 full rev, 1600 half, 800 qtr, 400 eigth, 200 sixteenth, 100 thirty-secondth
@@ -103,7 +109,18 @@ void setup()
 void loop() 
 {
     CURR_MILLIS = millis();
-    testControlInputs();
+    if(CURR_MILLIS - PREV_TEST_MILLIS >= testInterval){
+        if(testRun == 0){
+            headlessControlTestForward(200);
+            testRun++;
+        }
+        else if(testRun == 1){
+            headlessControlTestBackward(200);
+            testRun--;
+        }
+        PREV_TEST_MILLIS+=testInterval;
+    }
+    //testControlInputs();
     runMotors();
     runServos();
     refreshLcd();
@@ -167,8 +184,8 @@ void printLcdOutput(){
     printStepperPositionText(stprA,String("A"));
     printStepperPositionText(stprB,String("B"));
     printStepperPositionText(stprC,String("C"));
-    printServoPositionText();
-    //printCurrentStatus();
+    //printServoPositionText();
+    printCurrentStatus();
 }
 
 void printStepperPositionText(AccelStepper &stepper, String label){
@@ -188,7 +205,26 @@ void printServoPositionText(){
 }
 
 void printCurrentStatus(){
-    switch (motorSelection)
+    switch(testLCDMode){
+        case 0:
+            printCurrentMotorStatus();
+            break;
+        case 1:
+            printCurrentTime();
+            break;
+    }
+ }
+
+void printCurrentTime(){
+    char timeValue[18];
+    //todo: convert MILLIS into an elapsed min:sec timer
+    String timeString = String(timeValue);
+    lcd.print("T:"+timeString);
+}
+
+
+void printCurrentMotorStatus(){
+     switch (motorSelection)
     {
         case 0:
             lcd.print("CURRENT MOTOR: A    ");
@@ -207,6 +243,24 @@ void printCurrentStatus(){
 //End LCD Methods
 
 //Test and Control Method Section
+
+void headlessControlTestForward(int stepCount){
+    //move shoulder motor B
+    int positionB =  stprB.currentPosition() + stepCount;
+    constantSpeedMotorToTargetPosition(stprB, positionB);
+    //move shoulder motor C (INVERTED)
+    int positionC =  stprC.currentPosition() - stepCount;
+    constantSpeedMotorToTargetPosition(stprC, positionC);
+}
+
+void headlessControlTestBackward(int stepCount){
+     //move shoulder motor B
+    int positionB =  stprB.currentPosition() - stepCount;
+    constantSpeedMotorToTargetPosition(stprB, positionB);
+    //move shoulder motor C (INVERTED)
+    int positionC =  stprC.currentPosition() + stepCount;
+    constantSpeedMotorToTargetPosition(stprC, positionC);
+}
 
 void testControlInputs(){
 
