@@ -44,9 +44,9 @@ int DRIVER_MODE = 1;
 
 //display variables
 int CURSOR_ROW = 0;
-int LINE_CURSOR_MAXROW = 4;
+const int LINE_CURSOR_MAXROW = 4;
 int CURSOR_COL = 0;
-int LINE_CURSOR_MAXCOL = 20;
+const int LINE_CURSOR_MAXCOL = 20;
 
 int VIEWPORT_OFFSET = 0;
 unsigned long CURR_MILLIS = 0;
@@ -57,17 +57,21 @@ unsigned long PREV_TEST_MILLIS = 0;
 //VARIABLE SETTINGS FOR TESTING 
 int testInterval = 3000;//wait two seconds between motor tests
 int testRun = 0; //which test to run,  currently 1 is shoulder -forward-(same direction of wrist facing) and 2 is shoulder -backward-(opposite direction of wrist facing)
-int testLCDMode = 0; //0 - default displays current motor selection, 1 - display current MILLIS as seconds value, max
+//display modes
+int displayMode = 0; //0 - default displays positions for A, B, and C, 4th line configurable via testLCDMode
+int testLCDMode = 1; //0 - default displays current motor selection, 1 - display current MILLIS as seconds value, max
+//refresh intervals
 int refreshInterval = 1000;//refreshes lcd every 1s
 int scrollInterval = 10000;//10 second interval
+//motor variables
 int acceleration = 250; //steps per second, per second
-int constantSpeed = 80; //steps per second
-int maxSpeed = 100;    //steps per second
+int constantSpeed = 200; //steps per second
+int maxSpeed = 200;    //steps per second
 //END VARIABLE SETTINGS
 
 //global settings
-int stepsPerRev = 3200; //running in 1/16 step mode, 200 full steps per rev * 16
-int stepsPerPress = 100; // 1/16th rev per press - 3200 full rev, 1600 half, 800 qtr, 400 eigth, 200 sixteenth, 100 thirty-secondth
+int stepsPerRev = 6400; //running in 1/32 step mode, 200 full steps per rev * 32
+int stepsPerPress = 200; // 1/32nd rev per press - 6400 full rev, 3200 half, 1600 qtr, 800 eigth, 400 sixteenth, 200 thirty-secondth
 //Stepper Notes Section
 
 /*
@@ -109,21 +113,11 @@ void setup()
 void loop() 
 {
     CURR_MILLIS = millis();
-    if(CURR_MILLIS - PREV_TEST_MILLIS >= testInterval){
-        if(testRun == 0){
-            headlessControlTestForward(200);
-            testRun++;
-        }
-        else if(testRun == 1){
-            headlessControlTestBackward(200);
-            testRun--;
-        }
-        PREV_TEST_MILLIS+=testInterval;
-    }
-    //testControlInputs();
+    //testControlInputs(); - uncomment for manual control
+    //runServos(); - uncomment for servo control
     runMotors();
-    runServos();
     refreshLcd();
+    runTestsMain();
 }
 //END MAIN REQUIRED METHODS
 
@@ -132,6 +126,22 @@ void initialize()
 {
     resetMaxSpeed();
     resetAllMotors();
+    initializeTextArrays();
+}
+
+void initializeTextArrays(){
+    switch(displayMode){
+        case 0:
+            setLineText("MOTOR A POS: ",0,0);
+            setLineText("MOTOR B POS: ", 0,1);
+            setLineText("MOTOR C POS: ", 0,2);
+            initCurrentStatus();
+            break;
+        case 1:
+            break;
+        default:
+            break;
+    }
 }
 
 void resetAllMotors()
@@ -165,142 +175,7 @@ void runServos(){
 //end Utility and Motor Control
 
 
-//LCD Methods
-void refreshLcd(){
-    if(CURR_MILLIS - PREV_LCD_MILLIS >= refreshInterval){
-        printLcdOutput();
-        PREV_LCD_MILLIS+=refreshInterval;
-    }
-}
-
-void resetCursorPosition(){
-    CURSOR_COL = 0;
-    CURSOR_ROW = 0;
-    lcd.setCursor(CURSOR_COL,CURSOR_ROW);
-}
-
-void printLcdOutput(){
-    resetCursorPosition();
-    printStepperPositionText(stprA,String("A"));
-    printStepperPositionText(stprB,String("B"));
-    printStepperPositionText(stprC,String("C"));
-    //printServoPositionText();
-    printCurrentStatus();
-}
-
-void printStepperPositionText(AccelStepper &stepper, String label){
-    if(!IsStepperRunning(stepper)){
-        String stepperPos = String(stepper.currentPosition(), DEC);
-        lcd.print("MOTOR "+label+" POS: "+stepperPos+"      ");
-    }
-   
-    //update cursor to print the next statement no matter what
-    CURSOR_ROW++;
-    lcd.setCursor(CURSOR_COL,CURSOR_ROW);
-}
-
-void printServoPositionText(){
-    String servoPos = String(elbowServoDeg, DEC);
-    lcd.print("SERVO POS: "+servoPos+"      ");
-}
-
-void printCurrentStatus(){
-    switch(testLCDMode){
-        case 0:
-            printCurrentMotorStatus();
-            break;
-        case 1:
-            printCurrentTime();
-            break;
-    }
- }
-
-void printCurrentTime(){
-    char timeValue[18];
-    //todo: convert MILLIS into an elapsed min:sec timer
-    String timeString = String(timeValue);
-    lcd.print("T:"+timeString);
-}
-
-
-void printCurrentMotorStatus(){
-     switch (motorSelection)
-    {
-        case 0:
-            lcd.print("CURRENT MOTOR: A    ");
-            break;
-        case 1:
-            lcd.print("CURRENT MOTORS: B+C ");
-            break;
-        case 2:
-            lcd.print("CURRENT MOTOR: D    ");
-            break;
-        default:
-           lcd.print("CURRENT MOTOR: A    ");
-            break;
-    }
- }
-//End LCD Methods
-
 //Test and Control Method Section
-
-void headlessControlTestForward(int stepCount){
-    //move shoulder motor B
-    int positionB =  stprB.currentPosition() + stepCount;
-    constantSpeedMotorToTargetPosition(stprB, positionB);
-    //move shoulder motor C (INVERTED)
-    int positionC =  stprC.currentPosition() - stepCount;
-    constantSpeedMotorToTargetPosition(stprC, positionC);
-}
-
-void headlessControlTestBackward(int stepCount){
-     //move shoulder motor B
-    int positionB =  stprB.currentPosition() - stepCount;
-    constantSpeedMotorToTargetPosition(stprB, positionB);
-    //move shoulder motor C (INVERTED)
-    int positionC =  stprC.currentPosition() + stepCount;
-    constantSpeedMotorToTargetPosition(stprC, positionC);
-}
-
-void testControlInputs(){
-
-    int ctrlAReading = digitalRead(CTRL_A);//forward (increase step)
-    int ctrlBReading = digitalRead(CTRL_B);//backward (decrease step)
-    int ctrlCReading = digitalRead(CTRL_C);//motor selector
-    int ctrlDReading = digitalRead(CTRL_D);//prompt servo movement
-
-    // increase step of selected motor
-    if(ctrlAReading != prevCtrlAState){
-       if(ctrlAReading == LOW){
-            moveConstantSelectedMotor(stepsPerPress);
-        }
-        prevCtrlAState = ctrlAReading;
-    }
-    //decrease step of selected motor
-    if(ctrlBReading != prevCtrlBState){
-        if(ctrlBReading == LOW){
-            moveConstantSelectedMotor(-stepsPerPress);
-        }
-        prevCtrlBState = ctrlBReading;
-    }
-
-    //change stepper motor selection
-    if(ctrlCReading != prevCtrlCState){
-        if(ctrlCReading == LOW){
-            selectMotor();
-        }
-        prevCtrlCState = ctrlCReading;
-    }
-
-    //variable fourth control, currently servo motor control
-    if(ctrlDReading != prevCtrlDState){
-        if(ctrlDReading == LOW){
-            updateServoPosition();
-        }
-        prevCtrlDState = ctrlDReading;
-    }
-}
-
 void selectMotor(){
     if(motorSelection == 3){
         motorSelection = 0;
