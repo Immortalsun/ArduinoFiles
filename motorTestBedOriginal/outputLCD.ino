@@ -14,7 +14,7 @@ void resetCursorPosition(){
 
 void printLcdOutput(){
     resetCursorPosition();
-    printStepperPositionText(stprA,13,0);
+    printServoPositionText(15,0);
     printStepperPositionText(stprB,13,1);
     printStepperPositionText(stprC,13,2);
     printCurrentStatus();
@@ -41,9 +41,9 @@ void printStepperPositionText(AccelStepper &stepper,int column, int row){
     }
 }
 
-void printServoPositionText(){
+void printServoPositionText(int column, int row){
     String servoPos = String(elbowServoDeg, DEC);
-    lcd.print("SERVO POS: "+servoPos+"      ");
+    setLineText(servoPos, column, row);
 }
 
 void initCurrentStatus(){

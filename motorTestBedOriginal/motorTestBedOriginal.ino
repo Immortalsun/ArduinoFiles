@@ -52,21 +52,28 @@ int VIEWPORT_OFFSET = 0;
 unsigned long CURR_MILLIS = 0;
 unsigned long PREV_MILLIS = 0;
 unsigned long PREV_LCD_MILLIS = 0;
-unsigned long PREV_TEST_MILLIS = 0;
+unsigned long PREV_MOTOR_MILLIS = 0;
+unsigned long PREV_SERVO_MILLIS = 0;
 
 //VARIABLE SETTINGS FOR TESTING 
-int testInterval = 3000;//wait two seconds between motor tests
-int testRun = 0; //which test to run,  currently 1 is shoulder -forward-(same direction of wrist facing) and 2 is shoulder -backward-(opposite direction of wrist facing)
+//motor variables
+int acceleration = 250; //steps per second, per second
+int constantSpeed = 200; //steps per second
+int maxSpeed = 200; //steps per second
+//test intervals
+int testSteps = 400;//steps
+int testServoDeg = 1; //servo angle increment, increasing this (along with testServoInterval) changes servo speed
+int MaxServoTestDeg = 0;
+int testMotorInterval = ((constantSpeed/testSteps)*1000)+500; //calculated from (constantSpeed/testSteps)*1000(milliseconds)+(1000)//.5-sec buffer
+int testServoInterval = 60;//update servo every 60 milliseconds 
+int testRun = 0; //which test to run,  currently 0 is shoulder -forward-(same direction of wrist facing) and 1 is shoulder -backward-(opposite direction of wrist facing), 2 is elbow servo rotate to max then min
+int servoTestRun = 2;//elbow servo control test control, 0 is sweep from 0 to 180deg, 1 is sweep to 90deg, 2, is sweep to 60 deg;
 //display modes
 int displayMode = 0; //0 - default displays positions for A, B, and C, 4th line configurable via testLCDMode
 int testLCDMode = 1; //0 - default displays current motor selection, 1 - display current MILLIS as seconds value, max
 //refresh intervals
 int refreshInterval = 1000;//refreshes lcd every 1s
 int scrollInterval = 10000;//10 second interval
-//motor variables
-int acceleration = 250; //steps per second, per second
-int constantSpeed = 200; //steps per second
-int maxSpeed = 200;    //steps per second
 //END VARIABLE SETTINGS
 
 //global settings
@@ -114,7 +121,6 @@ void loop()
 {
     CURR_MILLIS = millis();
     //testControlInputs(); - uncomment for manual control
-    //runServos(); - uncomment for servo control
     runMotors();
     refreshLcd();
     runTestsMain();
@@ -132,7 +138,7 @@ void initialize()
 void initializeTextArrays(){
     switch(displayMode){
         case 0:
-            setLineText("MOTOR A POS: ",0,0);
+            setLineText("SERVO ELB POS: ",0,0);
             setLineText("MOTOR B POS: ", 0,1);
             setLineText("MOTOR C POS: ", 0,2);
             initCurrentStatus();
@@ -165,12 +171,6 @@ void runMotors()
     stprA.runSpeedToPosition();
     stprB.runSpeedToPosition();
     stprC.runSpeedToPosition();
-}
-
-void runServos(){
-    if(prevElbowServoDeg != elbowServoDeg){
-         elbowServo.write(elbowServoDeg);
-    }
 }
 //end Utility and Motor Control
 

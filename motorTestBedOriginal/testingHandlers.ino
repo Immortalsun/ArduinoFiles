@@ -1,14 +1,39 @@
 void runTestsMain(){
-     if(CURR_MILLIS - PREV_TEST_MILLIS >= testInterval){
+    runServoTests();
+    runStepperTests();
+}
+
+void runServoTests(){
+    if(CURR_MILLIS - PREV_SERVO_MILLIS >= testServoInterval){
+        if(servoTestRun == 0){
+            MaxServoTestDeg = MAX_SERVO_DEG;
+        }
+        else if(servoTestRun == 1){
+            MaxServoTestDeg = 90;
+        }
+        else if(servoTestRun == 2){
+            MaxServoTestDeg = 60;
+        }
+
+        if(servoTestRun >= 0){
+            headlessServoControlTestContinuous();
+        }
+        
+        PREV_SERVO_MILLIS+=testServoInterval;
+    }
+}
+
+void runStepperTests(){
+    if(CURR_MILLIS - PREV_MOTOR_MILLIS >= testMotorInterval){
         if(testRun == 0){
-            headlessControlTestForward(200);
+            headlessControlTestForward(testSteps);
             testRun++;
         }
         else if(testRun == 1){
-            headlessControlTestBackward(200);
+            headlessControlTestBackward(testSteps);
             testRun--;
         }
-        PREV_TEST_MILLIS+=testInterval;
+        PREV_MOTOR_MILLIS+=testMotorInterval;
     }
 }
 
@@ -28,6 +53,26 @@ void headlessControlTestBackward(int stepCount){
     //move shoulder motor C (INVERTED)
     int positionC =  stprC.currentPosition() + stepCount;
     constantSpeedMotorToTargetPosition(stprC, positionC);
+}
+
+void headlessServoControlTestContinuous(){
+    if((elbowServoDeg+testServoDeg <= MaxServoTestDeg) && (elbowServoDeg+testServoDeg >= 0)){
+        elbowServoDeg += testServoDeg;
+    }
+    else{
+       testServoDeg = testServoDeg*(-1);
+    }
+    elbowServo.write(elbowServoDeg);
+}
+
+void headlessServoControlTestForward(int servoDeg){
+    elbowServoDeg += servoDeg;
+    elbowServo.write(elbowServoDeg);
+}
+
+void headlessServoControlTestBackward(int servoDeg){
+    elbowServoDeg -= servoDeg;
+    elbowServo.write(elbowServoDeg);
 }
 
 void testControlInputs(){
