@@ -10,6 +10,8 @@ robot arm
 #include <AccelStepper.h>
 #include <Servo.h>
 #include <string.h>
+#include <ctype.h>
+using namespace std;
 //END IMPORTS
 
 //MOVEMENT CONSTANTS
@@ -49,6 +51,7 @@ unsigned long PREV_SERVO_MILLIS = 0;
 int LCDRefreshInterval = 1000;//refreshes lcd every 1s
 int scrollInterval = 10000;//10 second interval
 const unsigned int MAX_INPUT = 50;
+const long SERVO_INTERVAL = 60;//milliseconds
 //END TIMING VARIABLES
 
 //SERVO AND STEPPER OBJECTS
@@ -59,22 +62,20 @@ AccelStepper stprD(DRIVER_MODE, MTR_D_STP, MTR_D_DIR);
 Servo elbowServo;
 //END MOTOR AND STEPPER OBJECTS
 
-//COMMAND DECLARATIONS
-
-//END COMMAND DECLARATIONS
-
-
-
 //GLOBAL VARIABLES
 LiquidCrystal_PCF8574 lcd(0x27);
-int elbowServoDeg = 0;
-int prevElbowServoDeg = 0;
+
+
 int stepsPerRev = 6400;
 int acceleration = 250; //steps per second, per second
 int constantSpeed = 200; //steps per second
 int maxSpeed = 200; //steps per second
 
-char inputBuffer[64];
+int elbowServoPos = 0;
+int elbowServoTargetPos = 0;
+int elbowServoInc = 1;
+
+String currentCommand = "";
 //END GLOBAL VARIABLES
 
 //MAIN REQUIRED METHODS
@@ -91,7 +92,9 @@ void setup()
 void loop() 
 {
     CURR_MILLIS = millis();
+    listenForSerialInput();
     runMotors();
+    runServos();
     refreshLcd();
 }
 //END MAIN REQUIRED METHODS
@@ -105,10 +108,10 @@ void initialize()
 }
 
 void initializeTextArrays(){
-    setLineText("BSE: ", 0,0);
-    setLineText("ELB: ",10,0);
-    setLineText("SHD: ", 0,1);
-    setLineText("RST: ",10,1);
+    setLineText("BSE: ", 0,0, false);
+    setLineText("ELB: ",10,0, false);
+    setLineText("SHD: ", 0,1, false);
+    setLineText("RST: ",10,1, false);
     initCurrentStatus();
 }
 
@@ -133,6 +136,24 @@ void runMotors()
     stprA.runSpeedToPosition();
     stprB.runSpeedToPosition();
     stprC.runSpeedToPosition();
+    stprD.runSpeedToPosition();
+}
+
+void runServos(){
+     if(CURR_MILLIS - PREV_SERVO_MILLIS >= SERVO_INTERVAL){
+         //elbow servo
+         if(elbowServoPos != elbowServoTargetPos){
+             if(elbowServoTargetPos > elbowServoPos){
+                 elbowServoPos += elbowServoInc;
+             }
+             else{
+                 elbowServoPos -= elbowServoInc;
+             }
+             servoRunToTargetPosition(elbowServo,elbowServoPos);
+         }
+         //end eblow servo handling
+         PREV_SERVO_MILLIS += SERVO_INTERVAL;
+     }
 }
 //end Utility and Motor Control
 
@@ -159,38 +180,39 @@ void printLcdOutput(){
     printCurrentStatus();
 }
 
-void setLineText(String text, int column, int row){
+void setLineText(String text, int column, int row, bool usePadding){
     CURSOR_ROW = row;
     CURSOR_COL = column;
     lcd.setCursor(CURSOR_COL, CURSOR_ROW);
-    // int padChars = LINE_CURSOR_MAXCOL - (column + text.length());
-    // if(padChars > 0){
-    //     int startPadIdx = (column+text.length());
-    //     for(int j=startPadIdx; j<LINE_CURSOR_MAXCOL; j++){
-    //         text+=' ';
-    //     }
-    // }
+    int padChars = LINE_CURSOR_MAXCOL - (column + text.length());
+     if(usePadding && padChars > 0){
+        int startPadIdx = (column+text.length());
+        for(int j=startPadIdx; j<LINE_CURSOR_MAXCOL; j++){
+            text+=' ';
+        }
+    }
     lcd.print(text);
 }
 
 void printStepperPositionText(AccelStepper &stepper,int column, int row){
     if(!IsStepperRunning(stepper)){
         String stepperPos = String(stepper.currentPosition(), DEC);
-        setLineText(stepperPos, column, row);
+        setLineText(stepperPos, column, row, false);
     }
 }
 
 void printServoPositionText(int column, int row){
-    String servoPos = String(elbowServoDeg, DEC);
-    setLineText(servoPos, column, row);
+    String servoPos = String(elbowServoPos, DEC);
+    setLineText(servoPos, column, row, true);
 }
 
 void initCurrentStatus(){
-    setLineText("T: ",0,2);
+    setLineText("COM: ",0,2, false);
 }
 
 void printCurrentStatus(){
-     printCurrentTime();
+     //printCurrentTime();
+     printCurrentCommand();
 }
 
 void printCurrentTime(){
@@ -222,6 +244,10 @@ void printCurrentTime(){
     else {
         timeString+="00";
     }
-    setLineText(timeString,2,2);
+    setLineText(timeString,2,2, false);
+}
+
+void printCurrentCommand(){
+    setLineText(currentCommand,5,2, true);
 }
 //END LCD OUTPUT
