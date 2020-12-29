@@ -14,24 +14,24 @@ void servoRunToTargetPosition(Servo &servo, int pos){
     }
 }
 
-void constantSpeedMotorToTargetPosition(AccelStepper &stepper, long pos)
+void constantSpeedMotorToTargetPosition(AccelStepper &stepper, long pos, int speed)
 {
     if (!IsStepperRunning(stepper) && stepper.currentPosition() != pos)
     {
         stepper.moveTo(pos);
-        stepper.setSpeed(constantSpeed);
+        stepper.setSpeed(speed);
     }
 }
 
 int getMotorTravelTimeInMillis(int stepsTravel){
-    return ((constantSpeed/stepsTravel)*1000)+500;
+    return ((constantShoulderSpeed/stepsTravel)*1000)+500;
 }
 
 bool IsStepperRunning(AccelStepper &stepper){
     return stepper.distanceToGo() != 0;
 }
 
-void calculateAndRunStepper(AccelStepper &stepper, int position, bool isAbsolute){
+void calculateAndRunStepper(AccelStepper &stepper, int position, bool isAbsolute, int speed){
     long targetPos = 0;
     if(isAbsolute){
         targetPos += position;
@@ -39,7 +39,7 @@ void calculateAndRunStepper(AccelStepper &stepper, int position, bool isAbsolute
     else{
         targetPos = stepper.currentPosition() + position;
     }
-    constantSpeedMotorToTargetPosition(stepper, targetPos);
+    constantSpeedMotorToTargetPosition(stepper, targetPos, speed);
 }
 
 int calculateServoTargetPosition(int inputPosition, int currentPosition, bool isAbsolute){

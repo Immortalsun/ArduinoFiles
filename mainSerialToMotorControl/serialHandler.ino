@@ -104,15 +104,17 @@ bool isIncrementOrDecrement(char input){
 void processCommand(char axis, int movement, bool isAbsolute){
     switch(axis){
         case BASE_CMD:
+            calculateAndRunStepper(stprA, movement, isAbsolute, constantBaseSpeed);
             break;
         case ELBW_CMD:
             elbowServoTargetPos = calculateServoTargetPosition(movement, elbowServoPos, isAbsolute);
             break;
         case SHLDR_CMD:
-            calculateAndRunStepper(stprB, movement, isAbsolute);
-            calculateAndRunStepper(stprC, (movement*-1), isAbsolute);
+            calculateAndRunStepper(stprB, movement, isAbsolute, constantShoulderSpeed);
+            calculateAndRunStepper(stprC, (movement*-1), isAbsolute,constantShoulderSpeed);
             break;
         case WRIST_CMD:
+            calculateAndRunStepper(stprD, movement, isAbsolute, constantWristSpeed);
             break;
         default:
             return;

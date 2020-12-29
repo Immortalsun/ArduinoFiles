@@ -22,6 +22,7 @@ const int DRIVER_MODE = 1;
 //LCD VARIABLES
 int CURSOR_ROW = 0;
 int CURSOR_COL = 0;
+const int MAX_VALUE_LENGTH = 5;
 const int LINE_CURSOR_MAXROW = 4;
 const int LINE_CURSOR_MAXCOL = 20;
 //END LCD VARIABLES
@@ -68,7 +69,9 @@ LiquidCrystal_PCF8574 lcd(0x27);
 
 int stepsPerRev = 6400;
 int acceleration = 250; //steps per second, per second
-int constantSpeed = 200; //steps per second
+int constantShoulderSpeed = 200; //steps per second (for NEMA 23 shoulder motors)
+int constantBaseSpeed = 50; //steps per second (for nema 17 base motor)
+int constantWristSpeed = 100;//steps per second (for wrist nema 17 motor)
 int maxSpeed = 200; //steps per second
 
 int elbowServoPos = 0;
@@ -194,10 +197,24 @@ void setLineText(String text, int column, int row, bool usePadding){
     lcd.print(text);
 }
 
+void setStepperValueLineText(String text, int column, int row){
+    CURSOR_ROW = row;
+    CURSOR_COL = column;
+    lcd.setCursor(CURSOR_COL, CURSOR_ROW);
+    int padChars = MAX_VALUE_LENGTH - text.length();
+     if(padChars > 0){
+        int startPadIdx = (column+text.length());
+        for(int j=startPadIdx; j<(startPadIdx+padChars); j++){
+            text+=' ';
+        }
+    }
+    lcd.print(text);
+}
+
 void printStepperPositionText(AccelStepper &stepper,int column, int row){
     if(!IsStepperRunning(stepper)){
         String stepperPos = String(stepper.currentPosition(), DEC);
-        setLineText(stepperPos, column, row, false);
+        setStepperValueLineText(stepperPos, column, row);
     }
 }
 
@@ -210,21 +227,32 @@ void initCurrentStatus(){
     setLineText("COM: ",0,2, false);
 }
 
-void printCurrentStatus(){
-     //printCurrentTime();
-     printCurrentCommand();
+void printCurrentStatus(){ 
+    printCurrentCommand();
+    printCurrentTime();
 }
 
 void printCurrentTime(){
     String timeString = "";
     //todo: convert MILLIS into an elapsed min:sec timer
     unsigned long currentMilliValue = CURR_MILLIS;
+    //3600000 milliseconds in a hour
+    long hour = currentMilliValue / 3600000;
+    currentMilliValue -= (3600000 * hour);
     //60000 milliseconds in a minute
     long min = currentMilliValue / 60000;
     currentMilliValue -= (60000 * min);
     //1000 milliseconds in a second
     long sec = currentMilliValue / 1000;
     currentMilliValue -= (1000 * sec);
+    if(hour < 10){
+        timeString+="0";
+        timeString+=String(hour,DEC);
+    }
+    else{
+        timeString+=String(hour, DEC);
+    }
+    timeString+= ":";
     if(min < 10){
         timeString+="0";
         timeString+= String(min, DEC);
@@ -244,7 +272,7 @@ void printCurrentTime(){
     else {
         timeString+="00";
     }
-    setLineText(timeString,2,2, false);
+    setLineText(timeString,0,3, false);
 }
 
 void printCurrentCommand(){
