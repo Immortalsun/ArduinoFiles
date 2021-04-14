@@ -7,13 +7,13 @@ int GRPR_STP = 9;
 int GRPR_DIR = 8;
 int DRIVER_MODE = 1;
 int acceleration = 200; //steps per second, per second
-int constantSpeed = 200; //steps per second
-int maxSpeed = 800; //steps per second+
+int constantSpeed = 1000; //steps per second
+int maxSpeed = 1000; //steps per second+
 
 int testSteps = 3200; //steps per test run
 int testRun = 0;
 bool useAcceleration = false;
-int testMotorInterval = ((constantSpeed/testSteps)*1000)+500; //calculated from (constantSpeed/testSteps)*1000(milliseconds)+(500)//.5-sec buffer
+int testMotorInterval = ((testSteps/constantSpeed)*1000)+500; //calculated from (constantSpeed/testSteps)*1000(milliseconds)+(500)//.5-sec buffer
 unsigned long PREV_MOTOR_MILLIS = 0;
 unsigned long CURR_MILLIS = 0;
 unsigned long PREV_MILLIS = 0;
