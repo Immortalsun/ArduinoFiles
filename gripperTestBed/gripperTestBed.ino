@@ -6,14 +6,14 @@
 int GRPR_STP = 9;
 int GRPR_DIR = 8;
 int DRIVER_MODE = 1;
-int acceleration = 200; //steps per second, per second
-int constantSpeed = 1000; //steps per second
-int maxSpeed = 1000; //steps per second+
+int acceleration = 400; //steps per second squared
+int constantSpeed = 800; //steps per second
+int maxSpeed = 800; //steps per second
 
-int testSteps = 3200; //steps per test run
+int testStepsPerRun = 3200; //steps per test run 
 int testRun = 0;
 bool useAcceleration = false;
-int testMotorInterval = ((testSteps/constantSpeed)*1000)+500; //calculated from (constantSpeed/testSteps)*1000(milliseconds)+(500)//.5-sec buffer
+int testMotorInterval = 5000; //default value is 5 seconds. This interval is calculated based on use of acceleration vs. constant speed, and number of test steps per run
 unsigned long PREV_MOTOR_MILLIS = 0;
 unsigned long CURR_MILLIS = 0;
 unsigned long PREV_MILLIS = 0;
@@ -21,8 +21,8 @@ unsigned long PREV_MILLIS = 0;
 int gripperCyclingMax = 400;
 int gripperCurrentPos = 0;
 //global settings
-int stepsPerRev = 6400; //running in 1/32 step mode, 200 full steps per rev * 32
-int stepsPerPress = 200; // 1/32nd rev per press - 6400 full rev, 3200 half, 1600 qtr, 800 eigth, 400 sixteenth, 200 thirty-secondth
+int testIntervalBuffer = 500;//milliseconds of buffer time between each test run
+int stepsPerRev = 1600; //running in 1/8 step mode, 1600 full steps per rev
 
 AccelStepper grprMtr(DRIVER_MODE, GRPR_STP, GRPR_DIR);
 
@@ -41,8 +41,19 @@ void loop()
 //Utility and Motor Control
 void initialize()
 {
+    setUpTestInterval();
     resetMaxSpeed();
     resetAllMotors();
+}
+
+void setUpTestInterval()
+{
+    if(useAcceleration){
+        testMotorInterval = (calculateSecondsToPositionWithAcceleration(testStepsPerRun)*1000)+testIntervalBuffer; //convert to milliseconds and add buffer
+    }
+    else{
+        testMotorInterval = (calculateSecondsToPositionForConstantSpeed(testStepsPerRun)*1000)+testIntervalBuffer;
+    }
 }
 
 void resetAllMotors()
@@ -68,6 +79,29 @@ void runMotors()
     else{
         grprMtr.runSpeedToPosition();
     }
+}
+
+///<summary>
+///@brief 
+/// Estimates the time (in seconds) for a stepper motor to travel a distance (complete a supplied number of steps).
+/// Formula takes into account both acceleration and deceleration (and assumes they are symmetric, 
+/// thus deceleration is denoted as -acceleration)
+///@param distanceInSteps 
+///@return int 
+///</summary>
+int calculateSecondsToPositionWithAcceleration(int distanceInSteps){
+    return (.5*((maxSpeed/acceleration)+(maxSpeed/-acceleration))+(distanceInSteps/maxSpeed));
+}
+
+///<summary>
+///@brief 
+/// Estimates the time (in seconds) for a stepper motor to travel a distance (complete a supplied number of steps)
+/// while moving at a constant speed.
+///@param distanceInSteps 
+///@return int 
+///</summary>
+int calculateSecondsToPositionForConstantSpeed(int distanceInSteps){
+    return (distanceInSteps/constantSpeed);
 }
 
 void moveConstantSelectedMotor(long stepsPerPress){
@@ -105,35 +139,33 @@ bool IsStepperRunning(AccelStepper &stepper){
 void runStepperTests(){
     if(CURR_MILLIS - PREV_MOTOR_MILLIS >= testMotorInterval){
         if(testRun == 0){
-            headlessControlTestForward(testSteps);
+            headlessControlTestForward(testStepsPerRun, grprMtr);
             testRun++;
         }
         else if(testRun == 1){
-            headlessControlTestBackward(testSteps);
+            headlessControlTestBackward(testStepsPerRun, grprMtr);
             testRun--;
         }
         PREV_MOTOR_MILLIS+=testMotorInterval;
     }
 }
 
-void headlessControlTestForward(int stepCount){
-    //move shoulder motor B
-    int gripperPos =  grprMtr.currentPosition() + stepCount;
+void headlessControlTestForward(int stepCount, AccelStepper &stepper){
+    int gripperPos =  stepper.currentPosition() + stepCount;
     if(useAcceleration){
-         accelerateMotorToTargetPosition(grprMtr, gripperPos);
+         accelerateMotorToTargetPosition(stepper, gripperPos);
     }
     else{
-        constantSpeedMotorToTargetPosition(grprMtr, gripperPos);
+        constantSpeedMotorToTargetPosition(stepper, gripperPos);
     }
 }
 
-void headlessControlTestBackward(int stepCount){
-     //move shoulder motor B
-    int gripperPos =  grprMtr.currentPosition() - stepCount;
+void headlessControlTestBackward(int stepCount, AccelStepper &stepper){
+    int gripperPos =  stepper.currentPosition() - stepCount;
      if(useAcceleration){
-         accelerateMotorToTargetPosition(grprMtr, gripperPos);
+         accelerateMotorToTargetPosition(stepper, gripperPos);
     }
     else{
-        constantSpeedMotorToTargetPosition(grprMtr, gripperPos);
+        constantSpeedMotorToTargetPosition(stepper, gripperPos);
     }
 }
